@@ -14,10 +14,16 @@ def send_discord(item, image_file=None):
     elif kind == "이벤트":
         webhook_url = EVENT_WEBHOOK_URL
     else:
-        raise RuntimeError(f"알 수 없는 항목 종류입니다: {kind}")
+        raise RuntimeError(
+            f"알 수 없는 알림 종류입니다: "
+            f"{kind}"
+        )
 
     if not webhook_url:
-        raise RuntimeError(f"{kind}용 Discord Webhook 설정이 없습니다.")
+        raise RuntimeError(
+            f"{kind}용 Discord Webhook "
+            "환경변수가 없습니다."
+        )
 
     fields = []
 
@@ -38,25 +44,43 @@ def send_discord(item, image_file=None):
         })
 
     embed = {
-        "title": f"[{kind}] {item['title']}"[:256],
+        "title": (
+            f"[{kind}] "
+            f"{item['title']}"
+        )[:256],
         "url": item["url"],
-        "description": f"거상 홈페이지에 새로운 {kind}이(가) 등록되었습니다.",
+        "description": (
+            f"거상 홈페이지에 새 "
+            f"{kind}이(가) 등록되었습니다."
+        ),
         "fields": fields,
         "footer": {
-            "text": "공식 거상 공지 페이지"
+            "text": (
+                "천하제일상 거상 "
+                "공식 홈페이지"
+            )
         },
     }
 
-    # 이벤트 전송 시 이미지가 있는 경우
+    # 이미지가 있는 경우 embed에 연결
     if image_file:
         filename = image_file[0]
         embed["image"] = {
             "url": f"attachment://{filename}"
         }
-        print(f"Discord Embed 이미지 설정: attachment://{filename}")
+        print(
+            "Discord Embed 이미지 연결: "
+            f"attachment://{filename}"
+        )
+    else:
+        if item.get("image_url"):
+            print(
+                "이미지 다운로드 실패. "
+                "이미지 없이 Discord 전송"
+            )
 
     payload = {
-        "username": "거상 알림 봇",
+        "username": "거상 소식 알림",
         "embeds": [embed],
     }
 

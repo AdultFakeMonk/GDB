@@ -1,4 +1,4 @@
-﻿import re
+import re
 from urllib.parse import urljoin, urlparse
 from bs4 import BeautifulSoup
 import requests
@@ -6,7 +6,7 @@ from common import EVENT_URL, HEADERS, MAX_SEND_PER_RUN, fetch_html, normalize_i
 from discord_sender import send_discord
 
 # ============================================================
-# ?대깽??URL ?뺤씤
+# 이벤트 URL 확인
 # ============================================================
 
 def normalize_event_url(href):
@@ -24,8 +24,9 @@ def normalize_event_url(href):
 
     return parsed._replace(query="", fragment="").geturl()
 
+
 # ============================================================
-# CSS background-image?먯꽌 URL 異붿텧
+# CSS background-image에서 URL 추출
 # ============================================================
 
 def extract_background_image(element):
@@ -42,8 +43,9 @@ def extract_background_image(element):
         return match.group(1).strip()
     return None
 
+
 # ============================================================
-# ?대깽??????대?吏 異붿텧
+# 이벤트 대표 이미지 추출
 # ============================================================
 
 def extract_event_image(box, base_url):
@@ -56,7 +58,7 @@ def extract_event_image(box, base_url):
         "data-original-src",
     ]
 
-    # img ?쒓렇
+    # img 태그
     for img in box.select("img"):
         for attr in image_attributes:
             image_url = normalize_image_url(img.get(attr), base_url)
@@ -81,18 +83,19 @@ def extract_event_image(box, base_url):
 
     return None
 
+
 # ============================================================
-# ?대깽???곸꽭?섏씠吏?먯꽌 ?대?吏 李얘린
+# 이벤트 상세페이지에서 이미지 찾기
 # ============================================================
 
 def extract_detail_page_image(event_url):
-    print("紐⑸줉?먯꽌 ?대깽???대?吏瑜?李얠? 紐삵뻽?듬땲??")
-    print(f"?곸꽭?섏씠吏 ?대?吏 ?뺤씤: {event_url}")
+    print("목록에서 이벤트 이미지를 찾지 못했습니다.")
+    print(f"상세페이지 이미지 확인: {event_url}")
 
     try:
         html = fetch_html(event_url)
     except Exception as e:
-        print(f"?대깽???곸꽭?섏씠吏 ?묒냽 ?ㅽ뙣: {e}")
+        print(f"이벤트 상세페이지 접속 실패: {e}")
         return None
 
     soup = BeautifulSoup(html, "html.parser")
@@ -118,14 +121,22 @@ def extract_detail_page_image(event_url):
 
     return None
 
+
 # ============================================================
-# ?대깽???대?吏 ?ㅼ슫濡쒕뱶
+# 이벤트 이미지 다운로드
 # ============================================================
 
 def download_event_image(image_url, event_url):
+    """
+    Discord가 거상 서버에서 직접 이미지를
+    가져가도록 하지 않고,
+    GitHub Actions가 먼저 원본 이미지를
+    다운로드한 뒤 Discord에 파일로 첨부합니다.
+    이미지 크기는 변경하지 않습니다.
+    """
     print("")
-    print("?대깽???대?吏 ?ㅼ슫濡쒕뱶 ?쒖옉")
-    print(f"?대?吏 URL: {image_url}")
+    print("이벤트 이미지 다운로드 시작")
+    print(f"이미지 URL: {image_url}")
 
     image_headers = dict(HEADERS)
     image_headers["Referer"] = event_url
@@ -140,17 +151,17 @@ def download_event_image(image_url, event_url):
         response.raise_for_status()
 
         if not response.content:
-            raise RuntimeError("?대?吏 ?묐떟 ?댁슜??鍮꾩뼱 ?덉뒿?덈떎.")
+            raise RuntimeError("이미지 응답 내용이 비어 있습니다.")
 
         content_type = (
             response.headers.get("Content-Type", "").split(";")[0].strip().lower()
         )
 
-        print(f"?대?吏 ?ㅼ슫濡쒕뱶 ?깃났 (HTTP {response.status_code})")
+        print(f"이미지 다운로드 성공 (HTTP {response.status_code})")
         print(f"Content-Type: {content_type}")
-        print(f"?대?吏 ?ш린: {len(response.content)} bytes")
+        print(f"이미지 크기: {len(response.content)} bytes")
 
-        # ?뺤옣??寃곗젙
+        # 확장자 결정
         extension = ".jpg"
         if content_type == "image/png":
             extension = ".png"
@@ -165,11 +176,12 @@ def download_event_image(image_url, event_url):
         return (filename, response.content, content_type or "image/jpeg")
 
     except requests.RequestException as e:
-        print(f"?대깽???대?吏 ?ㅼ슫濡쒕뱶 ?ㅽ뙣: {e}")
+        print(f"이벤트 이미지 다운로드 실패: {e}")
         return None
 
+
 # ============================================================
-# ?대깽???뚯떛
+# 이벤트 파싱
 # ============================================================
 
 def parse_events(html):
@@ -186,7 +198,9 @@ def parse_events(html):
             continue
 
         status = " ".join(label_box.stripped_strings).strip()
-        if status != "吏꾪뻾以?:
+
+        # 진행중인 이벤트만
+        if status != "진행중":
             continue
 
         href = (subject_link.get("href") or "").strip()
@@ -205,18 +219,20 @@ def parse_events(html):
         if date_box:
             period = " ".join(date_box.stripped_strings).strip()
 
-        # ?대깽??????대?吏 異붿텧
+        # 이벤트 대표 이미지 추출
         image_url = extract_event_image(box, EVENT_URL)
+
+        # 목록에서 못 찾으면 상세페이지에서 검색
         if not image_url:
             image_url = extract_detail_page_image(full_url)
 
         if image_url:
-            print(f"?대깽???대?吏 諛쒓껄: {image_url}")
+            print(f"이벤트 이미지 발견: {image_url}")
         else:
-            print(f"?대깽???대?吏 ?놁쓬: {title}")
+            print(f"이벤트 이미지 없음: {title}")
 
         events[full_url] = {
-            "kind": "?대깽??,
+            "kind": "이벤트",
             "title": title,
             "status": status,
             "period": period,
@@ -226,58 +242,60 @@ def parse_events(html):
 
     return list(events.values())
 
+
 # ============================================================
-# ?대깽??泥섎━
+# 이벤트 처리
 # ============================================================
 
 def process_events(state):
     print("")
-    print("===== ?대깽???뺤씤 =====")
+    print("===== 이벤트 확인 =====")
 
     try:
         html = fetch_html(EVENT_URL)
     except Exception as e:
-        print(f"?대깽???섏씠吏 ?묒냽 ?ㅽ뙣: {e}")
+        print(f"이벤트 페이지 접속 실패: {e}")
         return False
 
     events = parse_events(html)
-    print(f"吏꾪뻾以??대깽??媛먯? 媛쒖닔: {len(events)}")
+    print(f"진행중 이벤트 감지 개수: {len(events)}")
 
     for item in events[:10]:
-        print(f"媛먯?: {item['title']} / {item['period']} / {item['url']}")
-        print(f"  ?대?吏: {item.get('image_url')}")
+        print(f"감지: {item['title']} / {item['period']} / {item['url']}")
+        print(f"  이미지: {item.get('image_url')}")
 
     if not events:
-        print("寃쎄퀬: 吏꾪뻾以묒씤 ?대깽?몃? 李얠? 紐삵뻽?듬땲??")
+        print("경고: 진행중인 이벤트를 찾지 못했습니다.")
         return False
 
     old_seen = set(state.get("event_seen_urls", []))
     current_urls = [item["url"] for item in events]
 
-    # 泥??ㅽ뻾
+    # 첫 실행
     if not old_seen:
         state["event_seen_urls"] = current_urls[:100]
-        print(f"?대깽??珥덇린?? ?꾩옱 吏꾪뻾以??대깽??{len(current_urls)}媛쒕? 湲곗??먯쑝濡????)
+        print(f"이벤트 초기화: 현재 진행중 이벤트 {len(current_urls)}개를 기준점으로 저장")
         return True
 
-    # ???대깽???뺤씤
+    # 새 이벤트 확인
     new_events = [item for item in events if item["url"] not in old_seen]
 
     if new_events:
-        print(f"???대깽??{len(new_events)}媛?諛쒓껄")
+        print(f"새 이벤트 {len(new_events)}개 발견")
         for item in new_events[:MAX_SEND_PER_RUN]:
             image_file = None
             if item.get("image_url"):
                 image_file = download_event_image(item["image_url"], item["url"])
                 if not image_file:
-                    print("?대?吏 ?ㅼ슫濡쒕뱶 ?ㅽ뙣. ?대?吏 ?놁씠 Discord ?꾩넚")
+                    print("이미지 다운로드 실패. 이미지 없이 Discord 전송")
 
             send_discord(item, image_file=image_file)
-            print(f"?대깽??Discord ?꾩넚: {item['title']} / {item['period']}")
+            print(f"이벤트 Discord 전송: {item['title']} / {item['period']}")
     else:
-        print("???대깽???놁쓬")
+        print("새 이벤트 없음")
 
-    # ?곹깭 ???    merged = []
+    # 상태 저장
+    merged = []
     for url in (current_urls + list(old_seen)):
         if url not in merged:
             merged.append(url)

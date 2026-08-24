@@ -1,4 +1,4 @@
-﻿from bs4 import BeautifulSoup
+from bs4 import BeautifulSoup
 from common import NOTICE_URL, MAX_SEND_PER_RUN, fetch_html
 from discord_sender import send_discord
 
@@ -140,6 +140,16 @@ def process_notices(state):
 
     except Exception:
         last_id = 0
+
+    # 안전장치: last_id가 0이거나 newest_id와 50 이상 차이나면
+    # 상태 파일이 리셋된 것으로 보고 초기화만 수행 (중복 전송 방지)
+    if last_id == 0 or (newest_id - last_id) > 50:
+        print(
+            f"경고: last_id({last_id})가 비정상입니다. "
+            f"최신 ID {newest_id}로 초기화합니다. (중복 전송 방지)"
+        )
+        state["notice_last_id"] = newest_id
+        return True
 
     new_notices = [
         item

@@ -296,7 +296,7 @@ def process_events(state):
 
     # 상태 저장
     merged = []
-    for url in (current_urls + list(old_seen)):
+    for url in (current_urls + state.get("event_seen_urls", [])):
         if url not in merged:
             merged.append(url)
 

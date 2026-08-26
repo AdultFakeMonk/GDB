@@ -22,9 +22,6 @@ NOTICE_URL = (
     "news/notice.gs?GSbid=1001"
 )
 
-# 개별 공지 게시글 URL 생성용 베이스 (uid 파라미터 추가용)
-NOTICE_BASE_URL = "https://www.gersang.co.kr/news/notice.gs"
-
 EVENT_URL = (
     "https://www.gersang.co.kr/"
     "news/event.gs"

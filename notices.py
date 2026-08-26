@@ -1,6 +1,5 @@
-from urllib.parse import urljoin
 from bs4 import BeautifulSoup
-from common import NOTICE_URL, NOTICE_BASE_URL, MAX_SEND_PER_RUN, fetch_html
+from common import NOTICE_URL, MAX_SEND_PER_RUN, fetch_html
 from discord_sender import send_discord
 
 # 공지사항 파싱
@@ -33,19 +32,6 @@ def parse_notices(html):
             ".box-date"
         )
 
-        # 개별 공지 링크 추출 (있는 경우)
-        link_tag = row.select_one("a")
-        if link_tag and link_tag.get("href"):
-            notice_url = urljoin(
-                NOTICE_BASE_URL,
-                link_tag.get("href"),
-            )
-        else:
-            notice_url = (
-                f"{NOTICE_BASE_URL}"
-                f"?GSbid=1001&GSno={uid_text}"
-            )
-
         if subject is None:
             continue
 
@@ -69,7 +55,7 @@ def parse_notices(html):
                 "id": int(uid_text),
                 "title": title,
                 "date": date,
-                "url": notice_url,
+                "url": NOTICE_URL,
             }
         )
 

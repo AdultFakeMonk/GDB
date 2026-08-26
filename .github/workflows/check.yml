@@ -2,9 +2,7 @@ name: Check Gersang notices and events
 
 on:
   schedule:
-    # main.py가 3회x150초 = 약 7.5분간 실행되므로
-    # 안전하게 20분마다 1회 실행 (overlap 방지)
-    - cron: "0,20,40 * * * *"
+    - cron: "7,17,27,37,47,57 * * * *"
 
   workflow_dispatch:
 
@@ -22,8 +20,6 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-        with:
-          ref: main
 
       - name: Setup Python
         uses: actions/setup-python@v5
@@ -39,8 +35,6 @@ jobs:
           DISCORD_NOTICE_WEBHOOK_URL: ${{ secrets.DISCORD_NOTICE_WEBHOOK_URL }}
           DISCORD_EVENT_WEBHOOK_URL: ${{ secrets.DISCORD_EVENT_WEBHOOK_URL }}
           MAX_SEND_PER_RUN: "5"
-          RUN_CYCLES: "3"
-          CYCLE_DELAY_SECONDS: "150"
         run: python main.py
 
       - name: Save state
@@ -55,12 +49,4 @@ jobs:
 
           git add last_seen.json
           git commit -m "Update Gersang watcher state"
-
-          # push 실패 시 최대 3회 재시도 (동시 실행 충돌 방지)
-          for i in 1 2 3; do
-            git push && echo "Push success" && exit 0
-            echo "Push failed (attempt $i/3), pulling and retrying..."
-            git pull --rebase origin main
-          done
-          echo "Push failed after 3 attempts"
-          exit 1
+          git push

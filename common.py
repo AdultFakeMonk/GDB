@@ -1,14 +1,11 @@
-﻿import json
+import json
 import os
-import re
-import sys
 import time
 from pathlib import Path
 from urllib.parse import urljoin, urlparse
 
 import requests
 import urllib3
-from bs4 import BeautifulSoup
 
 
 urllib3.disable_warnings(
@@ -24,6 +21,9 @@ NOTICE_URL = (
     "https://www.gersang.co.kr/"
     "news/notice.gs?GSbid=1001"
 )
+
+# 개별 공지 게시글 URL 생성용 베이스 (uid 파라미터 추가용)
+NOTICE_BASE_URL = "https://www.gersang.co.kr/news/notice.gs"
 
 EVENT_URL = (
     "https://www.gersang.co.kr/"

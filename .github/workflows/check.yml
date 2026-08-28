@@ -2,7 +2,8 @@ name: Check Gersang notices and events
 
 on:
   schedule:
-    - cron: "7,17,27,37,47,57 * * * *"
+    # 릴레이가 혹시 끊어졌을 때를 대비한 보조 백업 스케줄
+    - cron: "0,30 * * * *"
 
   workflow_dispatch:
 
@@ -20,6 +21,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          ref: main
 
       - name: Setup Python
         uses: actions/setup-python@v5
@@ -35,18 +38,35 @@ jobs:
           DISCORD_NOTICE_WEBHOOK_URL: ${{ secrets.DISCORD_NOTICE_WEBHOOK_URL }}
           DISCORD_EVENT_WEBHOOK_URL: ${{ secrets.DISCORD_EVENT_WEBHOOK_URL }}
           MAX_SEND_PER_RUN: "5"
+          RUN_CYCLES: "3"
+          CYCLE_DELAY_SECONDS: "180" # 3분 간격 x 3회 = 약 9분 상주
         run: python main.py
 
       - name: Save state
         run: |
           if git diff --quiet -- last_seen.json; then
             echo "No state change"
-            exit 0
+          else
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add last_seen.json
+            git commit -m "Update Gersang watcher state"
+            for i in 1 2 3; do
+              git push && echo "Push success" && break
+              echo "Push failed (attempt $i/3), pulling and retrying..."
+              git pull --rebase origin main
+            done
           fi
 
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-
-          git add last_seen.json
-          git commit -m "Update Gersang watcher state"
-          git push
+      - name: Relay trigger next run (Self-Chaining)
+        if: always()
+        env:
+          GH_PAT: ${{ secrets.GH_PAT }}
+        run: |
+          echo "Triggering next relay execution..."
+          curl -s -X POST \
+            -H "Authorization: Bearer $GH_PAT" \
+            -H "Accept: application/vnd.github.v3+json" \
+            "https://api.github.com/repos/${{ github.repository }}/actions/workflows/check.yml/dispatches" \
+            -d '{"ref":"main"}' || echo "Relay trigger failed, fallback to cron"
+          echo "Next relay successfully dispatched!"

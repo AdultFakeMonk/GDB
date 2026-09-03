@@ -35,6 +35,7 @@ jobs:
           DISCORD_NOTICE_WEBHOOK_URL: ${{ secrets.DISCORD_NOTICE_WEBHOOK_URL }}
           DISCORD_EVENT_WEBHOOK_URL: ${{ secrets.DISCORD_EVENT_WEBHOOK_URL }}
           MAX_SEND_PER_RUN: "5"
+          GH_PAT: ${{ secrets.GH_PAT }}
         run: python main.py
 
       - name: Save state

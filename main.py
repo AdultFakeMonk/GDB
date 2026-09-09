@@ -70,11 +70,13 @@ def trigger_next_relay():
     """
     깃허브 액션이 게으른 자체 cron 스케줄러 때문에 멈추지 않도록,
     작업 종료 직전 깃허브 API를 호출하여 다음 액션을 즉시 깨우는 자가 릴레이 함수입니다.
+    일시적인 깃허브 API 장애(HTTP 500, 502, 일시적 타임아웃 등)에도 릴레이가 끊기지 않도록
+    최대 10회 재시도합니다.
     """
     token = os.environ.get("GH_PAT")
     if not token:
-        print("\n[자가 릴레이] GH_PAT 환경변수가 설정되지 않아 기본 스케줄러로 대기합니다.")
-        return
+        print("\n[자가 릴레이] GH_PAT 환경변수가 설정되지 않아 대기합니다.")
+        return False
 
     repo = os.environ.get("GITHUB_REPOSITORY", "AdultFakeMonk/GDB")
     workflow_id = "337555667"
@@ -87,15 +89,23 @@ def trigger_next_relay():
     }
     data = {"ref": "main"}
     
-    try:
-        print("\n[자가 릴레이] 다음 실행을 깃허브에 예약합니다...")
-        res = requests.post(url, headers=headers, json=data, timeout=15)
-        if res.status_code in (200, 204):
-            print("다음 릴레이 예약 성공! (24시간 무중단 연속 감시 유지)")
-        else:
+    for attempt in range(1, 11):
+        try:
+            print(f"\n[자가 릴레이] 다음 실행 예약 시도 ({attempt}/10)...")
+            res = requests.post(url, headers=headers, json=data, timeout=15)
+            if res.status_code in (200, 204):
+                print("다음 릴레이 예약 성공! (24시간 무중단 연속 감시 유지)")
+                return True
             print(f"릴레이 응답: HTTP {res.status_code} ({res.text})")
-    except Exception as e:
-        print(f"릴레이 호출 예외 발생 (cron 스케줄러로 백업): {e}")
+        except Exception as e:
+            print(f"릴레이 호출 예외 발생: {e}")
+
+        wait_sec = min(5 * attempt, 30)
+        print(f"{wait_sec}초 후 재시도합니다...")
+        time.sleep(wait_sec)
+
+    print("[자가 릴레이 경고] 10회 재시도 모두 실패")
+    return False
 
 
 def main():

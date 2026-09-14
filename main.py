@@ -11,6 +11,22 @@ from events import process_events
 # 메인 실행 엔진 (연속 감시 & 자가 릴레이 모드)
 # ============================================================
 
+def sync_latest_state_from_remote():
+    """
+    실행 시작 시 원격(origin/main)의 최신 last_seen.json을 강제로 fetch & checkout합니다.
+    이전 액션 러너가 직전에 푸시한 상태가 깃허브 액션 checkout 캐시에 아직 안 잡혔더라도,
+    무조건 원격 최신 상태를 강제로 덮어써서 중복 발송을 100% 방지합니다.
+    """
+    try:
+        print("[동기화] 원격 저장소(origin/main)의 최신 상태 파일을 확인합니다...")
+        subprocess.run(["git", "fetch", "origin", "main"], capture_output=True, text=True, timeout=15)
+        res = subprocess.run(["git", "checkout", "origin/main", "--", "last_seen.json"], capture_output=True, text=True, timeout=15)
+        if res.returncode == 0:
+            print("[동기화 완료] origin/main의 최신 상태 파일(last_seen.json) 동기화 완료")
+    except Exception as e:
+        print(f"[동기화 건너뜀] {e}")
+
+
 def push_state_to_remote():
     """
     공지나 이벤트 발송 후 즉시 원격지(GitHub)에 상태를 커밋&푸시합니다.
@@ -89,6 +105,9 @@ def trigger_next_relay():
     }
     data = {"ref": "main"}
     
+    # 직전 푸시가 깃허브 캐시에 전파될 수 있도록 5초간 대기 후 다음 릴레이 예약
+    time.sleep(5)
+
     for attempt in range(1, 11):
         try:
             print(f"\n[자가 릴레이] 다음 실행 예약 시도 ({attempt}/10)...")
@@ -117,6 +136,9 @@ def main():
     print("거상 공지/이벤트 24시간 자가 릴레이 모니터링 시작")
     print(f"설정: 총 {cycles}회 반복 감시, 체크 간격 {delay_seconds}초 (총 약 {int(cycles * delay_seconds / 60)}분 상주)")
     print("==================================================")
+
+    # 실행 전 원격 저장소 최신 상태 강제 동기화 (오래된 캐시 체크아웃으로 인한 중복 발송 방지)
+    sync_latest_state_from_remote()
 
     for i in range(1, cycles + 1):
         run_check_cycle(i, cycles)

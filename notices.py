@@ -55,7 +55,7 @@ def parse_notices(html):
                 "id": int(uid_text),
                 "title": title,
                 "date": date,
-                "url": NOTICE_URL,
+                "url": f"https://www.gersang.co.kr/news/notice.gs?GSbid=1001&seq={uid_text}",
             }
         )
 

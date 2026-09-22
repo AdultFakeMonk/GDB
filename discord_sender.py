@@ -1,12 +1,37 @@
 import json
+import os
 import requests
 from common import NOTICE_WEBHOOK_URL, EVENT_WEBHOOK_URL
+
+KAKAO_NOTIFY_URL = os.environ.get(
+    "KAKAO_NOTIFY_URL",
+    "https://pose-volumes-dress-concern.trycloudflare.com/api/notify",
+).strip()
+
+def send_kakao(item):
+    if not KAKAO_NOTIFY_URL:
+        return
+    try:
+        payload = {
+            "kind": item.get("kind"),
+            "title": item.get("title"),
+            "url": item.get("url"),
+            "date_or_period": item.get("date") or item.get("period"),
+        }
+        resp = requests.post(KAKAO_NOTIFY_URL, json=payload, timeout=10)
+        resp.raise_for_status()
+        print(f"KakaoTalk 전송 성공: [{item.get('kind')}] {item.get('title')}")
+    except Exception as e:
+        print(f"KakaoTalk 전송 실패: {e}")
 
 # ============================================================
 # Discord Webhook 전송
 # ============================================================
 
 def send_discord(item, image_file=None):
+    # 1. 카카오톡으로 동시 전송
+    send_kakao(item)
+
     kind = item["kind"]
 
     if kind == "공지":

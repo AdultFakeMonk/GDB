@@ -22,6 +22,11 @@ NOTICE_URL = (
     "news/notice.gs?GSbid=1001"
 )
 
+NOTICE_PAGE_URL = (
+    "https://www.gersang.co.kr/"
+    "news/notice.gs?GSbid=1001&page={page}"
+)
+
 EVENT_URL = (
     "https://www.gersang.co.kr/"
     "news/event.gs"

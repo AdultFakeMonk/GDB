@@ -1,5 +1,5 @@
 from bs4 import BeautifulSoup
-from common import NOTICE_URL, MAX_SEND_PER_RUN, fetch_html
+from common import NOTICE_URL, NOTICE_PAGE_URL, MAX_SEND_PER_RUN, fetch_html
 from discord_sender import send_discord
 
 # 공지사항 파싱
@@ -77,25 +77,43 @@ def process_notices(state):
         "===== 공지사항 확인 ====="
     )
 
-    try:
-        html = fetch_html(
-            NOTICE_URL
-        )
+    notices_dict = {}
 
-    except Exception as e:
+    for page in (1, 2):
+        page_url = NOTICE_PAGE_URL.format(page=page)
+        try:
+            print(f"공지사항 {page}페이지 확인 중...")
+            html = fetch_html(page_url)
+            page_notices = parse_notices(html)
+            for item in page_notices:
+                if item["id"] not in notices_dict:
+                    notices_dict[item["id"]] = item
+            print(
+                f"공지사항 {page}페이지 수집 완료: "
+                f"{len(page_notices)}건 감지 "
+                f"(누적 고유: {len(notices_dict)}건)"
+            )
+        except Exception as e:
+            print(
+                f"공지사항 {page}페이지 "
+                f"접속 실패: {e}"
+            )
+
+    if not notices_dict:
         print(
-            f"공지사항 페이지 "
-            f"접속 실패: {e}"
+            "경고: 공지사항 게시물을 "
+            "찾지 못했습니다."
         )
-
         return False
 
-    notices = parse_notices(
-        html
+    notices = sorted(
+        notices_dict.values(),
+        key=lambda item: item["id"],
+        reverse=True,
     )
 
     print(
-        f"공지사항 감지 개수: "
+        f"공지사항 최종 고유 개수: "
         f"{len(notices)}"
     )
 
@@ -105,14 +123,6 @@ def process_notices(state):
             f"{item['date']} / "
             f"{item['title']}"
         )
-
-    if not notices:
-        print(
-            "경고: 공지사항 게시물을 "
-            "찾지 못했습니다."
-        )
-
-        return False
 
     newest_id = notices[0]["id"]
 

@@ -108,6 +108,16 @@ def trigger_next_relay():
     # 직전 푸시가 깃허브 캐시에 전파될 수 있도록 5초간 대기 후 다음 릴레이 예약
     time.sleep(5)
 
+    # 이미 대기 중인(queued) 워크플로(cron 등으로 등록된 것)가 있는지 확인하여 불필요한 중복 큐잉 방지
+    try:
+        runs_url = f"https://api.github.com/repos/{repo}/actions/workflows/{workflow_id}/runs?status=queued"
+        r_queued = requests.get(runs_url, headers=headers, timeout=10)
+        if r_queued.status_code == 200 and r_queued.json().get("total_count", 0) > 0:
+            print("[자가 릴레이] 이미 대기 중인(queued) 워크플로가 있어 중복 예약을 건너뜁니다.")
+            return True
+    except Exception as e:
+        print(f"[자가 릴레이 확인 건너뜀] {e}")
+
     for attempt in range(1, 11):
         try:
             print(f"\n[자가 릴레이] 다음 실행 예약 시도 ({attempt}/10)...")
